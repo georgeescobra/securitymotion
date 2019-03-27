@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import twittercred
 import os
 import time
@@ -18,49 +17,54 @@ api = TwitterAPI(CONSUMER_KEY, CONSUMER_SECRET, ACCESS_TOKEN_KEY, ACCESS_TOKEN_S
 
 #0 is used if there is only one camera connected 
 camera = cv2.VideoCapture(0)
-kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
-fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()
+fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(500, 16, True)
 
 
-while(True):
+#checks if the camera was opened or not	
+while(camera.isOpened()):
 		
-	if camera.isOpened():
-		ret, frame= camera.read()
-	else:
-		ret = False
-		break
-	#converts to grey scale
-	fgmask = fgbg.apply(frame)
-	fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+	ret, frame = camera.read()
 
-	#Displaying the frame
-	cv2.imshow('temp', frame)
-	cv2.imshow('sd', fgmask)
+	while ret:
+		cv2.imshow('original', frame)
+		key = cv2.waitKey(0)
 
-	#takes the photo at q 
-	#exits while-loop when the waitkey value is either q or Q
-	if cv2.waitKey(1) & 0xFF == ord('q'):
-		cv2.imwrite('./random.png', frame)
-		break
-	difference = cv2.absdiff(frame, fgmask)
-	result = np.any(difference)
+		#converts to grey scale
+		fgmask = fgbg.apply(frame)
 
-	while(result):
-		cv2.imwrite('./random.png', frame)
-		file = open('random.png', 'rb')
-		data = file.read()
-		#this gets the time and date to post with the picture
-		localtime = time.asctime(time.localtime(time.time()))
+		#Displaying the frame
+		#cv2.imwrite('./media.png', fgmask)
 
-		#posting the actual photo
-		r = api.request('statuses/update_with_media', {'status': localtime}, {'media[]':data})
-		time.sleep(.7)
+		#takes the photo at q 
+		#exits while-loop when the waitkey value is either q or Q
+		thresh = cv2.countNonZero(fgmask)
+		
+
+		if(thresh > 30):
+			cv2.imwrite('./random.png', frame)
+			file = open('random.png', 'rb')
+			data = file.read()
+			#this gets the time and date to post with the picture
+			localtime = time.asctime(time.localtime(time.time()))
+
+			#posting the actual photo
+			r = api.request('statuses/update_with_media', {'status': localtime}, {'media[]':data})
+			time.sleep(.2)
+
+		if (key == ord('q')):
+			cv2.imwrite('./random.png', frame)
+			file = open('random.png', 'rb')
+			data = file.read()
+			localtime = time.asctime(time.localtime(time.time()))
+			r = api.request('statuses/update_with_media', {'status': localtime}, {'media[]':data})
+			break
+		# difference = cv2.absdiff(frame, fgmask)
+		# result = np.any(difference)
 
 
 #this releases the capture
 camera.release()
-cv2.destroyAllWindows
-
+cv2.destroyAllWindows()
 
 
 #only runs is the status code is successful / 200
